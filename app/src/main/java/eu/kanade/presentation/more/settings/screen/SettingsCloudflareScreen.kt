@@ -29,7 +29,7 @@ object SettingsCloudflareScreen : SearchableSettings {
         val bypassStrategy by networkPreferences.bypassStrategy().collectAsState()
         val proxyEnabled by networkPreferences.proxyEnabled().collectAsState()
         val maxRetries by networkPreferences.maxRetries().collectAsState()
-        val cacheEnabled by networkPreferences.cacheEnabled().collectAsState() 
+        val cacheEnabled by networkPreferences.cacheEnabled().collectAsState()
         val cacheDuration by networkPreferences.cacheDuration().collectAsState()
         val customUserAgentEnabled by networkPreferences.customUserAgentEnabled().collectAsState()
         val randomizeFingerprint by networkPreferences.randomizeFingerprint().collectAsState()
@@ -66,7 +66,7 @@ object SettingsCloudflareScreen : SearchableSettings {
                             15L * 60L * 1000L to "15 minutes",
                             30L * 60L * 1000L to "30 minutes",
                             60L * 60L * 1000L to "1 hour",
-                            2L * 60L * 60L * 1000L to "2 hours"
+                            2L * 60L * 60L * 1000L to "2 hours",
                         ).toImmutableMap(),
                         enabled = cacheEnabled,
                     ),
@@ -87,7 +87,7 @@ object SettingsCloudflareScreen : SearchableSettings {
                         onClick = {
                             networkPreferences.clearBypassCache()
                             context.toast(MR.strings.cookies_cleared)
-                        }
+                        },
                     ),
                 ),
             ),

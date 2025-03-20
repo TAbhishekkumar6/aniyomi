@@ -21,7 +21,7 @@ class NetworkModule : InjektModule {
                 context = get<Context>(),
                 networkPreferences = get(),
                 cookieManager = get(),
-                fingerprintGenerator = get()
+                fingerprintGenerator = get(),
             )
         }
         addSingleton {
@@ -29,7 +29,7 @@ class NetworkModule : InjektModule {
                 context = get(),
                 preferences = get(),
                 cloudflareBypassManager = get(),
-                browserFingerprintGenerator = get()
+                browserFingerprintGenerator = get(),
             )
         }
     }
