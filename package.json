@@ -1,0 +1,12 @@
+{
+    "name": "aniyomi-vscode",
+    "displayName": "Aniyomi Development Helper",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "dependencies": {
+        "@types/node": "^16.0.0",
+        "@types/vscode": "^1.60.0"
+    }
+}

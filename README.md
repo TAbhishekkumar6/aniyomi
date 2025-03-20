@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://aniyomi.org">
-    <img src="./.github/assets/logo.png" alt="Aniyomi logo" title="Aniyomi logo" width="80"/>
+    <img src="https://raw.githubusercontent.com/aniyomiorg/aniyomi/main/.github/assets/logo.png" alt="Aniyomi logo" title="Aniyomi logo" width="80"/>
 </a>
 
 # Aniyomi [App](#)
