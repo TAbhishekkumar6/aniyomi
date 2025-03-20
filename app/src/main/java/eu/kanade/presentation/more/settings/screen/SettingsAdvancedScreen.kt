@@ -219,6 +219,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         networkPreferences: NetworkPreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
+        val navigator = LocalNavigator.currentOrThrow
         val networkHelper = remember { Injekt.get<NetworkHelper>() }
 
         val userAgentPref = networkPreferences.defaultUserAgent()
@@ -227,6 +228,10 @@ object SettingsAdvancedScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
             preferenceItems = persistentListOf(
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_cloudflare_settings),
+                    onClick = { navigator.push(SettingsCloudflareScreen) },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_clear_cookies),
                     onClick = {
@@ -507,7 +512,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 kotlin.run {
                     val dataSaverImageFormatJpeg by sourcePreferences.dataSaverImageFormatJpeg().collectAsState()
-                    Preference.PreferenceItem.SwitchPreference(
+                    Preference.Preference.Item.SwitchPreference(
                         pref = sourcePreferences.dataSaverImageFormatJpeg(),
                         title = stringResource(MR.strings.data_saver_image_format),
                         subtitle = if (dataSaverImageFormatJpeg) {
@@ -518,7 +523,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                         enabled = dataSaver != DataSaver.NONE && dataSaver != DataSaver.RESMUSH_IT,
                     )
                 },
-                Preference.PreferenceItem.SwitchPreference(
+                Preference.Preference.Item.SwitchPreference(
                     pref = sourcePreferences.dataSaverColorBW(),
                     title = stringResource(MR.strings.data_saver_color_bw),
                     enabled = dataSaver == DataSaver.BANDWIDTH_HERO,

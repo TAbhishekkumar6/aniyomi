@@ -1,0 +1,15 @@
+// ...existing strings...
+
+<!-- Cloudflare bypass settings -->
+<string name="pref_category_cloudflare">Cloudflare bypass settings</string>
+<string name="pref_cloudflare_bypass_mode">Bypass mode</string>
+<string name="pref_cloudflare_proxy_enabled">Enable proxy</string>
+<string name="pref_cloudflare_max_retries">Maximum retry attempts</string>
+<string name="pref_cloudflare_cache_enabled">Enable cache</string> 
+<string name="pref_cloudflare_cache_duration">Cache duration</string>
+<string name="pref_cloudflare_custom_ua">Use custom user agent</string>
+<string name="pref_cloudflare_random_fingerprint">Randomize browser fingerprint</string>
+<string name="pref_cloudflare_aggressive_mode">Aggressive mode</string>
+<string name="pref_cloudflare_clear_cache">Clear bypass cache</string>
+
+// ...existing strings...

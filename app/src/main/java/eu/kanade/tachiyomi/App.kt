@@ -94,9 +94,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             if (packageName != process) WebView.setDataDirectorySuffix(process)
         }
 
+        // Register modules
         Injekt.importModule(PreferenceModule(this))
         Injekt.importModule(AppModule(this))
         Injekt.importModule(DomainModule())
+        Injekt.importModule(NetworkModule())  // Add NetworkModule registration
         // SY -->
         Injekt.importModule(SYDomainModule())
         // SY <--

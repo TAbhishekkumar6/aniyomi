@@ -20,72 +20,73 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class CloudflareInterceptor(
     private val context: Context,
-    private val cookieManager: AndroidCookieJar,
-    defaultUserAgentProvider: () -> String,
-) : WebViewInterceptor(context, defaultUserAgentProvider) {
+    private val cookieJar: AndroidCookieJar,
+    private val defaultUserAgentProvider: () -> String,
+) {
+    private var timeout: Int = 30
+    private var useEnhancedEvasions: Boolean = false
 
-    private val executor = ContextCompat.getMainExecutor(context)
-
-    override fun shouldIntercept(response: Response): Boolean {
-        // Check if Cloudflare anti-bot is on
-        return response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK
+    fun setTimeout(seconds: Int) {
+        timeout = seconds
     }
 
-    override fun intercept(chain: Interceptor.Chain, request: Request, response: Response): Response {
-        try {
-            response.close()
-            cookieManager.remove(request.url, COOKIE_NAMES, 0)
-            val oldCookie = cookieManager.get(request.url)
-                .firstOrNull { it.name == "cf_clearance" }
-            resolveWithWebView(request, oldCookie)
-
-            return chain.proceed(request)
-        }
-        // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
-        // we don't crash the entire app
-        catch (e: CloudflareBypassException) {
-            throw IOException(context.stringResource(MR.strings.information_cloudflare_bypass_failure), e)
-        } catch (e: Exception) {
-            throw IOException(e)
-        }
+    fun setEvasions(enabled: Boolean) {
+        useEnhancedEvasions = enabled
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun resolveWithWebView(originalRequest: Request, oldCookie: Cookie?) {
-        // We need to lock this thread until the WebView finds the challenge solution url, because
-        // OkHttp doesn't support asynchronous interceptors.
+    fun intercept(client: OkHttpClient, request: Request): Response {
+        val origRequest = request
+        val origRequestUrl = origRequest.url.toString()
+        
+        val oldCookie = cookieJar.get(origRequest.url.toHttpUrl())
+            .firstOrNull { it.name == "cf_clearance" }
+            
         val latch = CountDownLatch(1)
-
         var webview: WebView? = null
-
         var challengeFound = false
         var cloudflareBypassed = false
         var isWebViewOutdated = false
 
-        val origRequestUrl = originalRequest.url.toString()
-        val headers = parseHeaders(originalRequest.headers)
+        val headers = request.headers.toMultimap()
+        val executor = ContextCompat.getMainExecutor(context)
 
         executor.execute {
-            webview = createWebView(originalRequest)
+            webview = WebView(context).apply {
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    databaseEnabled = true
+                    mediaPlaybackRequiresUserGesture = false
+                    userAgentString = defaultUserAgentProvider()
+                }
+            }
 
             webview?.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
+                    // Cloudflare check
                     fun isCloudFlareBypassed(): Boolean {
-                        return cookieManager.get(origRequestUrl.toHttpUrl())
+                        val newCookie = cookieJar.get(origRequest.url.toHttpUrl())
                             .firstOrNull { it.name == "cf_clearance" }
-                            .let { it != null && it != oldCookie }
+                        return newCookie != null && newCookie != oldCookie
                     }
 
+                    // Inject our evasion scripts and checks
+                    view.evaluateJavascript(getEvasionScript()) { }
+                    if (useEnhancedEvasions) {
+                        view.evaluateJavascript(getAdvancedEvasionScript()) { }
+                    }
+
+                    // Check if bypassed
                     if (isCloudFlareBypassed()) {
                         cloudflareBypassed = true
                         latch.countDown()
                     }
 
                     if (url == origRequestUrl && !challengeFound) {
-                        // The first request didn't return the challenge, abort.
                         latch.countDown()
                     }
                 }
@@ -93,20 +94,21 @@ class CloudflareInterceptor(
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                     if (request.isForMainFrame) {
                         if (error.errorCode in ERROR_CODES) {
-                            // Found the Cloudflare challenge page.
                             challengeFound = true
                         } else {
-                            // Unlock thread, the challenge wasn't found.
                             latch.countDown()
                         }
                     }
                 }
             }
 
-            webview?.loadUrl(origRequestUrl, headers)
+            webview?.loadUrl(origRequestUrl, headers.mapValues { it.value.first() })
         }
 
-        latch.awaitFor30Seconds()
+        // Wait with timeout
+        if (!latch.await(timeout.toLong(), TimeUnit.SECONDS)) {
+            throw CloudflareBypassException("Timeout after ${timeout}s")
+        }
 
         executor.execute {
             if (!cloudflareBypassed) {
@@ -119,20 +121,63 @@ class CloudflareInterceptor(
             }
         }
 
-        // Throw exception if we failed to bypass Cloudflare
         if (!cloudflareBypassed) {
-            // Prompt user to update WebView if it seems too outdated
             if (isWebViewOutdated) {
                 context.toast(MR.strings.information_webview_outdated, Toast.LENGTH_LONG)
             }
-
             throw CloudflareBypassException()
         }
+
+        // Create new request with bypass cookies
+        val newRequest = origRequest.newBuilder()
+            .apply {
+                cookieJar.get(origRequest.url.toHttpUrl()).forEach {
+                    addHeader("Cookie", "${it.name}=${it.value}")
+                }
+            }
+            .build()
+
+        return client.newCall(newRequest).execute()
+    }
+
+    private fun getEvasionScript(): String = """
+        // Basic evasions
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5].map(() => ({
+            name: ['Chrome PDF Plugin', 'Chrome PDF Viewer', 'Native Client'][Math.floor(Math.random() * 3)]
+        }))});
+    """.trimIndent()
+
+    private fun getAdvancedEvasionScript(): String = """
+        // Advanced evasions for aggressive mode
+        const originalFunction = document.createElement;
+        document.createElement = function(...args) {
+            const element = originalFunction.apply(this, args);
+            if (element.tagName === 'CANVAS') {
+                const originalToDataURL = element.toDataURL;
+                element.toDataURL = function(...args) {
+                    return originalToDataURL.apply(this, args)
+                }
+            }
+            return element;
+        }
+
+        // Add WebGL evasions
+        const webglVendors = [
+            'Google Inc.', 'Apple Computer, Inc.', 'Intel Inc.', 'NVIDIA Corporation'
+        ];
+        const getParameterProxy = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+            if (parameter === 37445) { // UNMASKED_VENDOR_WEBGL
+                return webglVendors[Math.floor(Math.random() * webglVendors.length)];
+            }
+            return getParameterProxy.apply(this, arguments);
+        };
+    """.trimIndent()
+
+    companion object {
+        private val ERROR_CODES = listOf(403, 503, 429, 529, 520, 521, 522)
     }
 }
 
-private val ERROR_CODES = listOf(403, 503)
-private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
-private val COOKIE_NAMES = listOf("cf_clearance")
-
-private class CloudflareBypassException : Exception()
+class CloudflareBypassException(message: String? = null) : IOException(message ?: "Failed to bypass Cloudflare")

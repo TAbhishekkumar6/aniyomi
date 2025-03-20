@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
 class NetworkHelper(
     private val context: Context,
     private val preferences: NetworkPreferences,
+    private val cloudflareBypassManager: CloudflareBypassManager,
+    private val browserFingerprintGenerator: BrowserFingerprintGenerator,
 ) {
 
     val cookieJar = AndroidCookieJar()
@@ -43,10 +45,35 @@ class NetworkHelper(
             builder.addNetworkInterceptor(httpLoggingInterceptor)
         }
 
-        builder.addInterceptor(
-            CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider),
-        )
+        // Enhanced Cloudflare interceptor with bypass manager
+        builder.addInterceptor { chain ->
+            val request = chain.request()
+            try {
+                val response = chain.proceed(request)
+                if (response.code in listOf(403, 503, 429, 520, 521, 522) &&
+                    response.header("Server")?.contains("cloudflare", ignoreCase = true) == true) {
+                    response.close()
+                    
+                    // Try bypass with our enhanced manager
+                    val bypassResponse = cloudflareBypassManager.attemptBypass(builder.build(), request)
+                    if (bypassResponse != null) {
+                        return@addInterceptor bypassResponse
+                    }
+                    
+                    // If bypass manager failed, fall back to standard interceptor
+                    return@addInterceptor CloudflareInterceptor(
+                        context,
+                        cookieJar,
+                        ::defaultUserAgentProvider
+                    ).intercept(chain, request, response)
+                }
+                response
+            } catch (e: Exception) {
+                throw IOException(context.getString(R.string.information_cloudflare_bypass_failure), e)
+            }
+        }
 
+        // Configure DNS-over-HTTPS
         when (preferences.dohProvider().get()) {
             PREF_DOH_CLOUDFLARE -> builder.dohCloudflare()
             PREF_DOH_GOOGLE -> builder.dohGoogle()
@@ -66,12 +93,14 @@ class NetworkHelper(
         builder.build()
     }
 
-    /**
-     * @deprecated Since extension-lib 1.5
-     */
-    @Deprecated("The regular client handles Cloudflare by default")
-    @Suppress("UNUSED")
-    val cloudflareClient: OkHttpClient = client
-
-    fun defaultUserAgentProvider() = preferences.defaultUserAgent().get().trim()
+    fun defaultUserAgentProvider(): String {
+        val defaultUA = preferences.defaultUserAgent().get().trim()
+        return if (defaultUA.isNotBlank()) {
+            defaultUA
+        } else {
+            browserFingerprintGenerator.generateFingerprint()["sec-ch-ua"]?.let { ua ->
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ua.substringAfter("v=\"").substringBefore("\"")} Safari/537.36"
+            } ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        }
+    }
 }
