@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.network.interceptor
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -11,12 +10,9 @@ import androidx.core.content.ContextCompat
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
-import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -41,10 +37,10 @@ class CloudflareInterceptor(
     fun intercept(client: OkHttpClient, request: Request): Response {
         val origRequest = request
         val origRequestUrl = origRequest.url.toString()
-        
+
         val oldCookie = cookieJar.get(origRequest.url.toHttpUrl())
             .firstOrNull { it.name == "cf_clearance" }
-            
+
         val latch = CountDownLatch(1)
         var webview: WebView? = null
         var challengeFound = false

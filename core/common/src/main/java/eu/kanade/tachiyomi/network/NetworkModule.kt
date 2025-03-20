@@ -34,7 +34,7 @@ object NetworkModule {
     }
 
     @Provides
-    @Singleton 
+    @Singleton
     fun provideBrowserFingerprintGenerator(): BrowserFingerprintGenerator {
         return BrowserFingerprintGenerator()
     }

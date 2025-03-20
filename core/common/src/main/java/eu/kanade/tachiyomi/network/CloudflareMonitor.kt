@@ -9,7 +9,7 @@ import kotlin.math.min
 class CloudflareMonitor {
     private val mutex = Mutex()
     private val hostPatterns = ConcurrentHashMap<String, HostStats>()
-    
+
     data class HostStats(
         var successfulBypassCount: Int = 0,
         var failedBypassCount: Int = 0,
@@ -18,7 +18,7 @@ class CloudflareMonitor {
         var averageBypassTime: Long = 0,
         var lastChallengeType: String? = null,
         var consecutiveFailures: Int = 0,
-        val bypassTimings: MutableList<Long> = mutableListOf()
+        val bypassTimings: MutableList<Long> = mutableListOf(),
     )
 
     suspend fun recordSuccess(
@@ -26,18 +26,18 @@ class CloudflareMonitor {
         userAgent: String,
         cookies: Map<String, String>,
         bypassTime: Long,
-        challengeType: String
+        challengeType: String,
     ) = mutex.withLock {
         val host = url.host
         val stats = hostPatterns.getOrPut(host) { HostStats() }
-        
+
         stats.apply {
             successfulBypassCount++
             consecutiveFailures = 0
             lastSuccessfulUserAgent = userAgent
             lastSuccessfulCookies = cookies
             lastChallengeType = challengeType
-            
+
             // Update bypass timing statistics
             bypassTimings.add(bypassTime)
             if (bypassTimings.size > 10) bypassTimings.removeAt(0)
@@ -48,7 +48,7 @@ class CloudflareMonitor {
     suspend fun recordFailure(url: HttpUrl) = mutex.withLock {
         val host = url.host
         val stats = hostPatterns.getOrPut(host) { HostStats() }
-        
+
         stats.apply {
             failedBypassCount++
             consecutiveFailures++
@@ -57,7 +57,7 @@ class CloudflareMonitor {
 
     suspend fun getOptimalStrategy(url: HttpUrl): BypassStrategy = mutex.withLock {
         val stats = hostPatterns[url.host]
-        
+
         return when {
             stats == null -> BypassStrategy.DEFAULT
             stats.consecutiveFailures >= 3 -> BypassStrategy.AGGRESSIVE
@@ -79,11 +79,11 @@ class CloudflareMonitor {
 
     suspend fun getPreviousSuccess(url: HttpUrl): SuccessfulBypass? = mutex.withLock {
         val stats = hostPatterns[url.host] ?: return null
-        
+
         if (stats.lastSuccessfulUserAgent != null && stats.lastSuccessfulCookies != null) {
             return SuccessfulBypass(
                 userAgent = stats.lastSuccessfulUserAgent!!,
-                cookies = stats.lastSuccessfulCookies!!
+                cookies = stats.lastSuccessfulCookies!!,
             )
         }
         return null
@@ -91,13 +91,13 @@ class CloudflareMonitor {
 
     data class SuccessfulBypass(
         val userAgent: String,
-        val cookies: Map<String, String>
+        val cookies: Map<String, String>,
     )
 
     enum class BypassStrategy {
-        DEFAULT,    // Standard approach
-        FAST,       // Optimized for speed, less evasion
-        AGGRESSIVE  // Maximum evasion, slower
+        DEFAULT, // Standard approach
+        FAST, // Optimized for speed, less evasion
+        AGGRESSIVE, // Maximum evasion, slower
     }
 
     suspend fun clearStats() = mutex.withLock {

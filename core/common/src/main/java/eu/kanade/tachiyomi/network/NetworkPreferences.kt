@@ -26,7 +26,7 @@ class NetworkPreferences(
     // Enhanced Cloudflare bypass preferences
     fun bypassStrategy() = preferenceStore.getString(
         "cf_bypass_strategy",
-        BypassStrategy.DEFAULT.name
+        BypassStrategy.DEFAULT.name,
     )
 
     fun proxyEnabled() = preferenceStore.getBoolean("cf_proxy_enabled", false)
@@ -42,14 +42,14 @@ class NetworkPreferences(
     fun randomizeFingerprint() = preferenceStore.getBoolean("cf_randomize_fingerprint", true)
 
     fun aggressiveModeEnabled() = preferenceStore.getBoolean("cf_aggressive_mode", false)
-    
+
     fun clearBypassCache() {
         preferenceStore.getBoolean("cf_cache_enabled", true).delete()
     }
 
     enum class BypassStrategy {
-        DEFAULT,    // Standard approach
-        FAST,       // Optimized for speed, less evasion
-        AGGRESSIVE  // Maximum evasion, slower
+        DEFAULT, // Standard approach
+        FAST, // Optimized for speed, less evasion
+        AGGRESSIVE, // Maximum evasion, slower
     }
 }

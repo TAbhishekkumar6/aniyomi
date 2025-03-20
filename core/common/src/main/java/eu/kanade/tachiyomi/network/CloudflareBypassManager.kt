@@ -1,14 +1,12 @@
 package eu.kanade.tachiyomi.network
 
 import android.content.Context
-import android.webkit.WebView
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.util.concurrent.TimeUnit
 
 class CloudflareBypassManager(
     private val context: Context,
@@ -22,12 +20,12 @@ class CloudflareBypassManager(
     data class CacheEntry(
         val cookies: List<Cookie>,
         val timestamp: Long,
-        val userAgent: String
+        val userAgent: String,
     )
 
     fun attemptBypass(client: OkHttpClient, request: Request): Response? {
         val url = request.url.toString()
-        
+
         // Check cache first if enabled
         if (networkPreferences.cacheEnabled().get()) {
             val cached = cache[url]
@@ -59,16 +57,16 @@ class CloudflareBypassManager(
         // Determine retry strategy
         val maxRetries = networkPreferences.maxRetries().get()
         val strategy = NetworkPreferences.BypassStrategy.valueOf(
-            networkPreferences.bypassStrategy().get()
+            networkPreferences.bypassStrategy().get(),
         )
 
         var lastError: Exception? = null
         for (i in 1..maxRetries) {
             try {
                 val interceptor = CloudflareInterceptor(
-                    context = context, 
+                    context = context,
                     cookieJar = cookieManager,
-                    defaultUserAgentProvider = { fingerprint["User-Agent"] ?: "" }
+                    defaultUserAgentProvider = { fingerprint["User-Agent"] ?: "" },
                 )
 
                 // Configure based on strategy
@@ -84,18 +82,17 @@ class CloudflareBypassManager(
                 }
 
                 val response = interceptor.intercept(client, request)
-                
+
                 // Cache successful result
                 if (networkPreferences.cacheEnabled().get()) {
                     cache[url] = CacheEntry(
                         cookies = cookieManager.get(url.toHttpUrl()),
                         timestamp = System.currentTimeMillis(),
-                        userAgent = fingerprint["User-Agent"] ?: ""
+                        userAgent = fingerprint["User-Agent"] ?: "",
                     )
                 }
 
                 return response
-
             } catch (e: Exception) {
                 lastError = e
                 // Exponential backoff between retries

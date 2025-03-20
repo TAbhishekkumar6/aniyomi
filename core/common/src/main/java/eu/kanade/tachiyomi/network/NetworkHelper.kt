@@ -53,13 +53,13 @@ class NetworkHelper(
                 if (response.code in listOf(403, 503, 429, 520, 521, 522) &&
                     response.header("Server")?.contains("cloudflare", ignoreCase = true) == true) {
                     response.close()
-                    
+
                     // Try bypass with our enhanced manager
                     val bypassResponse = cloudflareBypassManager.attemptBypass(builder.build(), request)
                     if (bypassResponse != null) {
                         return@addInterceptor bypassResponse
                     }
-                    
+
                     // If bypass manager failed, fall back to standard interceptor
                     return@addInterceptor CloudflareInterceptor(
                         context,

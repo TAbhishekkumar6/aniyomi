@@ -11,12 +11,12 @@ class ProxyManager {
     private val mutex = Mutex()
     private val currentIndex = AtomicInteger(0)
     private var workingProxies = mutableListOf<ProxyConfig>()
-    
+
     data class ProxyConfig(
         val type: Type,
         val host: String,
         val port: Int,
-        var failCount: Int = 0
+        var failCount: Int = 0,
     ) {
         fun toProxy(): Proxy = Proxy(type, InetSocketAddress(host, port))
     }
@@ -27,14 +27,14 @@ class ProxyManager {
         workingProxies.addAll(
             listOf(
                 ProxyConfig(Type.SOCKS, "127.0.0.1", 9050), // Tor proxy if available
-                ProxyConfig(Type.HTTP, "127.0.0.1", 8118)   // Privoxy if available
-            )
+                ProxyConfig(Type.HTTP, "127.0.0.1", 8118), // Privoxy if available
+            ),
         )
     }
 
     suspend fun getNextProxy(): Proxy? = mutex.withLock {
         if (workingProxies.isEmpty()) return null
-        
+
         val index = currentIndex.getAndIncrement() % workingProxies.size
         return workingProxies[index].toProxy()
     }
