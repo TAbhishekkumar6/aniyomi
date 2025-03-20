@@ -55,7 +55,9 @@ class NetworkHelper(
                     response.close()
 
                     // Try bypass with our enhanced manager
-                    val bypassResponse = cloudflareBypassManager.attemptBypass(builder.build(), request)
+                    val bypassResponse = cloudflareBypassManager.attemptBypass(
+                        builder.build(), request
+                    )
                     if (bypassResponse != null) {
                         return@addInterceptor bypassResponse
                     }
@@ -69,7 +71,9 @@ class NetworkHelper(
                 }
                 response
             } catch (e: Exception) {
-                throw IOException(context.getString(R.string.information_cloudflare_bypass_failure), e)
+                throw IOException(
+                    context.getString(R.string.information_cloudflare_bypass_failure), e
+                )
             }
         }
 
